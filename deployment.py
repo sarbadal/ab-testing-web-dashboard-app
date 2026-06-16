@@ -182,6 +182,22 @@ def upload_static_assets(
 	return f"https://storage.googleapis.com/{bucket_name}/{static_prefix}".rstrip("/")
 
 
+def ensure_public_object_access(bucket_name: str, dry_run: bool = False) -> None:
+	"""Grant public read access to bucket objects for static hosting."""
+	run_cmd(
+		[
+			"gcloud",
+			"storage",
+			"buckets",
+			"add-iam-policy-binding",
+			f"gs://{bucket_name}",
+			"--member=allUsers",
+			"--role=roles/storage.objectViewer",
+		],
+		dry_run=dry_run,
+	)
+
+
 def build_deploy_command(args: argparse.Namespace, env_vars: Dict[str, str]) -> List[str]:
 	cmd = [
 		"gcloud",
@@ -249,6 +265,7 @@ def main() -> int:
 			location=args.bucket_location,
 			project_id=args.project_id,
 		)
+		ensure_public_object_access(args.bucket, dry_run=args.dry_run)
 		static_base_url = upload_static_assets(
 			client=client,
 			bucket_name=args.bucket,
