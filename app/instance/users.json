@@ -1,0 +1,16 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password_hash": "pbkdf2:sha256:1000000$slxQksxcW9gn3qvY$f95519471512b3e19460b940a5cca73b4d0818bf635b3dd2b30127a35bea3f02",
+      "is_admin": true,
+      "is_active": true
+    },
+    {
+      "username": "analyst",
+      "password_hash": "pbkdf2:sha256:1000000$sqgtGwu8MlG6gR4z$e8712be336b210506fac6adb3c0e332ffd2d063186a852d023dfa8100823ed4f",
+      "is_admin": false,
+      "is_active": true
+    }
+  ]
+}

@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retail Company - A/B Testing Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --ct-red: #FF0000;
+            --ct-dark: #333333;
+            --ct-light: #F5F5F5;
+        }
+        .ct-header {
+            background-color: var(--ct-red);
+            color: white;
+        }
+        .ct-bg-light {
+            background-color: var(--ct-light);
+        }
+        .metric-card {
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-significant {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .stat-not-significant {
+            color: #dc3545;
+        }
+        .nav-pills .nav-link.active {
+            background-color: var(--ct-red);
+        }
+        .ct-btn {
+            background-color: var(--ct-red);
+            color: white;
+        }
+        .ct-btn:hover {
+            background-color: #cc0000;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="ct-header py-3">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h4 mb-0">Retail Company A/B Testing Dashboard</h1>
+                <div class="d-flex align-items-center">
+                    <span class="me-3">Annalect</span>
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNiIgZmlsbD0iI0U4RThFOCIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTIiIHI9IjQiIGZpbGw9IiM2NjYiLz48cGF0aCBkPSJNMTYgMjBDMTIgMjAgOCAxOCA4IDE2VjE5QzggMjEuMiAxMS42IDI0IDE2IDI0QzIwLjQgMjQgMjQgMjEuMiAyNCAxOVYxNkMyNCAxOCAyMCAyMCAxNiAyMFoiIGZpbGw9IiM2NjYiLz48L3N2Zz4=" alt="User" width="32" height="32" class="rounded-circle me-3">
+                    <a href="{{ url_for('main.logout.logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container my-4">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Filters</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="dateRange" class="form-label">Date Range</label>
+                            <select class="form-select" id="dateRange">
+                                {% for range in date_ranges %}
+                                <option value="{{ range }}" {% if range == current_filters.date_range %}selected{% endif %}>{{ range }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="testSelect" class="form-label">Select Test</label>
+                            <select class="form-select" id="testSelect">
+                                {% for test in available_tests %}
+                                <option value="{{ test }}" {% if test == current_filters.test %}selected{% endif %}>{{ test }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="metricSelect" class="form-label">Primary Metric</label>
+                            <select class="form-select" id="metricSelect" disabled>
+                                {% for metric in metrics %}
+                                <option value="{{ metric }}" {% if metric == current_filters.metric %}selected{% endif %}>{{ metric }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <form method="GET" action="/" id="filterForm">
+                            <input type="hidden" name="test" id="hiddenTest">
+                            <input type="hidden" name="date_range" id="hiddenDateRange">
+                            <input type="hidden" name="metric" id="hiddenMetric">
+                            <button type="submit" class="btn ct-btn w-100" id="apply-filters-btn">
+                                <span class="btn-text">Apply Filters</span>
+                                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Test Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Test ID:</strong> {{ constants.test_summary.test_id }}</p>
+                        <p><strong>Start Date:</strong> {{ constants.test_summary.start_date }}</p>
+                        <p><strong>Sample Size:</strong> {{ constants.test_summary.sample_size }}</p>
+                        <p><strong>Status:</strong> <span class="badge {{ constants.test_summary.status_class }}">{{ constants.test_summary.status }}</span></p>
+                        <p><strong>Confidence Level:</strong> {{ constants.test_summary.confidence_level }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="col-md-9">
+                <ul class="nav nav-pills mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#overview" data-bs-toggle="tab">Overview</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#detailed" data-bs-toggle="tab">Detailed Analysis</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#segments" data-bs-toggle="tab">Segment Analysis</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Debug Section (only show in development environment) -->
+                    {% if env_type == 'dev' %}
+                    <div class="alert alert-info" style="margin-bottom: 20px;">
+                        <strong>Debug Info:</strong><br>
+                        Conversion Metrics Count: {{ conversion_metrics|length }}<br>
+                        Statistical Analysis: {{ "Available" if statistical_analysis else "None" }}<br>
+                        Current Filters: {{ current_filters }}<br>
+                        Environment: {{ env_type }}<br>
+                        {% if conversion_metrics %}
+                            Sample Metric: {{ conversion_metrics[0] }}<br>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Overview Tab -->
+                    <div class="tab-pane fade show active" id="overview">
+                        <div class="row mb-4 h-100">
+                            <div class="col-md-4 d-flex">
+                                <div class="card metric-card flex-fill" id="conversion-rate-card">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">Conversion Rate</h6>
+                                        {% if conversion_metrics and conversion_metrics|length >= 2 %}
+                                            {% set control = conversion_metrics|selectattr('test_group', 'equalto', 'Control')|first %}
+                                            {% set variant = conversion_metrics|selectattr('test_group', 'equalto', 'Variant B')|first %}
+                                            {% if control and variant %}
+                                                {% set avg_rate = ((control.conversion_rate + variant.conversion_rate) / 2)|round(1) %}
+                                                <h2 class="my-3" id="avg-conversion-rate">{{ avg_rate }}%</h2>
+                                                <div class="d-flex justify-content-around">
+                                                    <div>
+                                                        <span class="d-block" id="control-conversion-rate">Control: {{ control.conversion_rate }}%</span>
+                                                        <small class="text-muted">Variant A</small>
+                                                    </div>
+                                                    <div>
+                                                        <span class="d-block" id="variant-conversion-rate">Variant: {{ variant.conversion_rate }}%</span>
+                                                        <small class="text-muted">Variant B</small>
+                                                    </div>
+                                                </div>
+                                                {% if statistical_analysis %}
+                                                    <span class="{% if statistical_analysis.improvement > 0 %}stat-significant{% else %}stat-not-significant{% endif %}" id="improvement-text">
+                                                        {{ "+" if statistical_analysis.improvement > 0 }}{{ statistical_analysis.improvement }}% improvement
+                                                    </span>
+                                                {% else %}
+                                                    <span class="stat-not-significant" id="improvement-text">No statistical data</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <h2 class="my-3" id="avg-conversion-rate">N/A</h2>
+                                                <p class="text-muted">Insufficient data</p>
+                                            {% endif %}
+                                        {% else %}
+                                            <h2 class="my-3" id="avg-conversion-rate">N/A</h2>
+                                            <p class="text-muted">No data available</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex">
+                                <div class="card metric-card flex-fill" id="statistical-significance-card">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">Statistical Significance</h6>
+                                        {% if statistical_analysis %}
+                                            <h2 class="my-3" id="confidence-level">{{ statistical_analysis.confidence }}%</h2>
+                                            <div class="progress mb-2">
+                                                <div class="progress-bar {% if statistical_analysis.significance %}bg-success{% else %}bg-warning{% endif %}" 
+                                                     role="progressbar" 
+                                                     style="width: {{ statistical_analysis.confidence }}%" 
+                                                     id="confidence-progress"></div>
+                                            </div>
+                                            <p class="{% if statistical_analysis.significance %}stat-significant{% else %}stat-not-significant{% endif %} mb-0" id="significance-text">
+                                                {% if statistical_analysis.significance %}Statistically Significant{% else %}Not Statistically Significant{% endif %}
+                                            </p>
+                                            <small class="text-muted" id="p-value-text">p-value: {{ statistical_analysis.p_value }}</small>
+                                        {% else %}
+                                            <h2 class="my-3" id="confidence-level">N/A</h2>
+                                            <div class="progress mb-2">
+                                                <div class="progress-bar bg-secondary" role="progressbar" style="width: 0%" id="confidence-progress"></div>
+                                            </div>
+                                            <p class="stat-not-significant mb-0" id="significance-text">Insufficient Data</p>
+                                            <small class="text-muted" id="p-value-text">p-value: N/A</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 d-flex">
+                                <div class="card metric-card flex-fill" id="revenue-impact-card">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">Estimated Revenue Impact</h6>
+                                        {% if conversion_metrics and conversion_metrics|length >= 2 %}
+                                            {% set control = conversion_metrics|selectattr('test_group', 'equalto', 'Control')|first %}
+                                            {% set variant = conversion_metrics|selectattr('test_group', 'equalto', 'Variant B')|first %}
+                                            {% if control and variant %}
+                                                {% set revenue_impact = ((variant.avg_order_value - control.avg_order_value) * variant.total_visitors * 12)|round %}
+                                                <h2 class="my-3 {% if revenue_impact >= 0 %}text-success{% else %}text-danger{% endif %}" id="revenue-impact">
+                                                    {{ "+" if revenue_impact >= 0 }}${{ "{:,}".format(revenue_impact|abs|int) }}
+                                                </h2>
+                                                <p class="text-muted">Annual projection</p>
+                                                <div class="d-flex justify-content-around">
+                                                    <div>
+                                                        <span class="d-block" id="aov-text">AOV: ${{ variant.avg_order_value }}</span>
+                                                        {% set aov_diff = ((variant.avg_order_value - control.avg_order_value) / control.avg_order_value * 100)|round(1) %}
+                                                        <small class="text-muted {% if aov_diff >= 0 %}text-success{% else %}text-danger{% endif %}" id="aov-change">
+                                                            {{ "+" if aov_diff >= 0 }}{{ aov_diff }}% from control
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <h2 class="my-3" id="revenue-impact">N/A</h2>
+                                                <p class="text-muted">Insufficient data</p>
+                                            {% endif %}
+                                        {% else %}
+                                            <h2 class="my-3" id="revenue-impact">N/A</h2>
+                                            <p class="text-muted">No data available</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="card-title mb-0">Conversion Rate Over Time</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="conversionChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h5 class="card-title mb-0">Metric Comparison</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="metricChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header bg-white">
+                                <h5 class="card-title mb-0">Recommendation</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert {{ constants.recommendation.alert_class }}">
+                                    <strong>{{ constants.recommendation.title }}</strong> - 
+                                    {% if statistical_analysis and statistical_analysis.improvement %}
+                                        The test achieved statistical significance with a <span class="{% if statistical_analysis.improvement > 0 %}text-success{% else %}text-danger{% endif %}">{{ "+" if statistical_analysis.improvement > 0 else "" }}{{ statistical_analysis.improvement }}%</span> improvement in conversion rate. This change is expected to generate substantial annual revenue increase.
+                                    {% else %}
+                                        {{ constants.recommendation.description }}
+                                    {% endif %}
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn ct-btn">{{ constants.recommendation.button_text }}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Analysis Tab -->
+                    <div class="tab-pane fade" id="detailed">
+                        <div class="card mb-4">
+                            <div class="card-header bg-white">
+                                <h5 class="card-title mb-0">Statistical Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th>Control (A)</th>
+                                                <th>Variant (B)</th>
+                                                <th>Difference</th>
+                                                <th>Confidence</th>
+                                                <th>Significance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if summary_table and summary_table|length > 0 %}
+                                                {% for row in summary_table %}
+                                                <tr>
+                                                    <td>{{ row.metric }}</td>
+                                                    <td>{{ row.control_value }}</td>
+                                                    <td>{{ row.variant_value }}</td>
+                                                    <td>{{ row.difference }}</td>
+                                                    <td>{{ row.confidence }}</td>
+                                                    <td class="{% if row.is_significant %}stat-significant{% else %}stat-not-significant{% endif %}">{{ row.significance }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            {% else %}
+                                                <tr>
+                                                    <td>Conversion Rate</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td class="stat-not-significant">No</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Average Order Value</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td class="stat-not-significant">No</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Bounce Rate</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td class="stat-not-significant">No</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Pages per Session</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td>N/A</td>
+                                                    <td class="stat-not-significant">No</td>
+                                                </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row h-100">
+                            <div class="col-md-6 d-flex">
+                                <div class="card flex-fill">
+                                    <div class="card-header bg-white">
+                                        <h5 class="card-title mb-0">Sample Size Calculation</h5>
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <p><strong>Required Sample:</strong> {{ constants.sample_size_calculation.required_sample }}</p>
+                                        <p><strong>Achieved Sample:</strong> {{ constants.sample_size_calculation.achieved_sample }}</p>
+                                        <p><strong>Power:</strong> {{ constants.sample_size_calculation.power }}</p>
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ constants.sample_size_calculation.progress_percentage }}%"></div>
+                                        </div>
+                                        <div class="mt-auto">
+                                            <small class="text-muted">Minimum detectable effect: {{ constants.sample_size_calculation.minimum_detectable_effect }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex">
+                                <div class="card flex-fill">
+                                    <div class="card-header bg-white">
+                                        <h5 class="card-title mb-0">Confidence Interval</h5>
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <p><strong>Conversion Rate Difference:</strong> {{ constants.confidence_interval.conversion_rate_difference }}</p>
+                                        <p><strong>Confidence Level:</strong> {{ constants.confidence_interval.confidence_level }}</p>
+                                        <div class="mt-auto">
+                                            <h6>Probability to be Best</h6>
+                                            <p>Variant B: {{ constants.confidence_interval.probability_variant_best }}</p>
+                                            <p>Control: {{ constants.confidence_interval.probability_control_best }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Segment Analysis Tab -->
+                    <div class="tab-pane fade" id="segments">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h6 class="card-title mb-0 text-muted">Performance by Device Type</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="deviceChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h6 class="card-title mb-0 text-muted">Geographic Performance</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="geoChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header bg-white">
+                                        <h6 class="card-title mb-0 text-muted">New vs. Returning Visitors</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="visitorChart" height="250"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="mt-5 py-3 ct-bg-light">
+        <div class="container">
+            <p class="mb-0 text-center text-muted">© <span id="footer-year"></span> Kids Play Corporation. All A/B testing data is confidential and for internal use only.</p>
+        </div>
+    </footer>
+
+    <!-- Include URL Builder JavaScript -->
+    <script src="{{ url_config.static_base_url or '/static' }}/js/url-builder.js"></script>
+    
+    <script>
+        // Initialize URL configuration from server-side template
+        window.urlBuilder = new URLBuilder({{ url_config|tojson }});
+        
+        // Legacy variables for backward compatibility
+        window.API_BASE_URL = window.urlBuilder.baseConfig.api_base_url;
+        const apiBaseUrl = window.API_BASE_URL;
+        document.getElementById('footer-year').textContent = new Date().getFullYear();
+        
+        // Debug function to check API configuration
+        function checkAPIConfig() {
+            console.log('=== API Configuration Check ===');
+            window.urlBuilder.logConfiguration();
+            console.log('Legacy API_BASE_URL:', window.API_BASE_URL);
+            console.log('Current location:', window.location.href);
+            console.log('Environment info:', window.urlBuilder.getEnvironmentInfo());
+        }
+        
+        // Test function to manually test API
+        async function testAPI() {
+            console.log('Testing API...');
+            try {
+                const data = await loadDataFromAPI('Homepage Redesign', 'Last 7 days', 'Conversion Rate');
+                if (data) {
+                    console.log('API test successful:', data);
+                    return data;
+                } else {
+                    console.log('API test failed - no data returned');
+                    return null;
+                }
+            } catch (error) {
+                console.error('API test failed with error:', error);
+                return null;
+            }
+        }
+        
+        // Make these functions globally available for debugging
+        window.checkAPIConfig = checkAPIConfig;
+        window.testAPI = testAPI;
+        
+        // Call on page load for debugging (only in development)
+        if (window.urlBuilder.getEnvironmentInfo().is_development) {
+            checkAPIConfig();
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Embed server-side data into JavaScript
+        const serverData = {
+            timeSeriesData: {{ time_series_data|tojson }},
+            deviceData: {{ device_data|tojson }},
+            visitorData: {{ visitor_data|tojson }},
+            locationData: {{ location_data|tojson }},
+            conversionMetrics: {{ conversion_metrics|tojson }},
+            statisticalAnalysis: {{ statistical_analysis|tojson }}
+        };
+        
+        // Global variables for charts
+        let conversionChart, metricChart, deviceChart, geoChart, visitorChart;
+        
+        // Function to load data from API
+        async function loadDataFromAPI(test, dateRange, metric) {
+            try {
+                const params = {
+                    test: test || 'Homepage Redesign',
+                    date_range: dateRange || 'Last 7 days',
+                    metric: metric || 'Conversion Rate'
+                };
+                
+                // Use the URLBuilder to construct the API URL
+                const response = await window.urlBuilder.fetchApi('', {}, params);
+                
+                console.log('API response status:', response.status);
+                console.log('API response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('API response data received successfully');
+                return data;
+            } catch (error) {
+                console.error('Error loading data from API:', error);
+                
+                // Fallback to legacy method for backward compatibility
+                try {
+                    const params = new URLSearchParams({
+                        test: test || 'Homepage Redesign',
+                        date_range: dateRange || 'Last 7 days',
+                        metric: metric || 'Conversion Rate'
+                    });
+                    
+                    const fallbackUrl = `${apiBaseUrl}?${params}`;
+                    console.log('Trying fallback URL:', fallbackUrl);
+                    
+                    const fallbackResponse = await fetch(fallbackUrl);
+                    if (fallbackResponse.ok) {
+                        return await fallbackResponse.json();
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback also failed:', fallbackError);
+                }
+                
+                return null;
+            }
+        }
+        
+        // Make loadDataFromAPI globally available
+        window.loadDataFromAPI = loadDataFromAPI;
+        
+        // Function to update dashboard with new data
+        function updateDashboard(data) {
+            if (!data) {
+                console.error('No data provided to updateDashboard');
+                return;
+            }
+            
+            console.log('Updating dashboard with data:', data);
+            
+            // Update Overview tab - conversion metrics cards
+            updateConversionMetrics(data.conversion_metrics, data.statistical_analysis);
+            
+            // Update Detailed Analysis tab
+            updateDetailedAnalysis(data);
+            
+            // Update all charts (Overview and Segment Analysis tabs)
+            updateCharts(data);
+            
+            console.log('Dashboard update completed');
+        }
+        
+        // Function to update conversion metrics cards
+        function updateConversionMetrics(conversionMetrics, statisticalAnalysis) {
+            if (conversionMetrics && conversionMetrics.length >= 2) {
+                const control = conversionMetrics.find(m => m.test_group === 'Control');
+                const variant = conversionMetrics.find(m => m.test_group === 'Variant B');
+                
+                if (control && variant) {
+                    // Update conversion rate
+                    const avgRate = ((control.conversion_rate + variant.conversion_rate) / 2).toFixed(1);
+                    document.getElementById('avg-conversion-rate').textContent = `${avgRate}%`;
+                    document.getElementById('control-conversion-rate').textContent = `Control: ${control.conversion_rate}%`;
+                    document.getElementById('variant-conversion-rate').textContent = `Variant: ${variant.conversion_rate}%`;
+                    
+                    // Update statistical significance
+                    if (statisticalAnalysis) {
+                        document.getElementById('confidence-level').textContent = `${statisticalAnalysis.confidence}%`;
+                        document.getElementById('improvement-text').textContent = 
+                            `${statisticalAnalysis.improvement > 0 ? '+' : ''}${statisticalAnalysis.improvement}% improvement`;
+                        document.getElementById('significance-text').textContent = 
+                            statisticalAnalysis.significance ? 'Statistically Significant' : 'Not Statistically Significant';
+                        document.getElementById('p-value-text').textContent = `p-value: ${statisticalAnalysis.p_value}`;
+                        
+                        // Update progress bar
+                        const progressBar = document.getElementById('confidence-progress');
+                        progressBar.style.width = `${statisticalAnalysis.confidence}%`;
+                        progressBar.className = `progress-bar ${statisticalAnalysis.significance ? 'bg-success' : 'bg-warning'}`;
+                    }
+                    
+                    // Update revenue impact
+                    const revenueImpact = ((variant.avg_order_value - control.avg_order_value) * variant.total_visitors * 12);
+                    document.getElementById('revenue-impact').textContent = 
+                        `${revenueImpact >= 0 ? '+' : ''}$${Math.abs(revenueImpact).toLocaleString()}`;
+                    document.getElementById('aov-text').textContent = `AOV: $${variant.avg_order_value}`;
+                    
+                    const aovDiff = ((variant.avg_order_value - control.avg_order_value) / control.avg_order_value * 100);
+                    document.getElementById('aov-change').textContent = 
+                        `${aovDiff >= 0 ? '+' : ''}${aovDiff.toFixed(1)}% from control`;
+                }
+            }
+        }
+        
+        // Function to update charts with new data
+        function updateCharts(data) {
+            // Update serverData global variable with new data
+            serverData.timeSeriesData = data.time_series_data || [];
+            serverData.deviceData = data.device_data || [];
+            serverData.visitorData = data.visitor_data || [];
+            serverData.locationData = data.location_data || [];
+            serverData.conversionMetrics = data.conversion_metrics || [];
+            serverData.statisticalAnalysis = data.statistical_analysis || null;
+            
+            console.log('Updating charts with new data:', {
+                timeSeriesCount: serverData.timeSeriesData.length,
+                deviceDataCount: serverData.deviceData.length,
+                visitorDataCount: serverData.visitorData.length,
+                locationDataCount: serverData.locationData.length,
+                conversionMetricsCount: serverData.conversionMetrics.length
+            });
+            
+            // Destroy existing charts to prevent memory leaks
+            if (conversionChart) {
+                conversionChart.destroy();
+                conversionChart = null;
+            }
+            if (metricChart) {
+                metricChart.destroy();
+                metricChart = null;
+            }
+            if (deviceChart) {
+                deviceChart.destroy();
+                deviceChart = null;
+            }
+            if (geoChart) {
+                geoChart.destroy();
+                geoChart = null;
+            }
+            if (visitorChart) {
+                visitorChart.destroy();
+                visitorChart = null;
+            }
+            
+            // Reinitialize all charts with new data
+            initializeCharts();
+        }
+        
+        // Function to update summary table
+        function updateSummaryTable(summaryTable) {
+            const tableBody = document.querySelector('#detailed .table tbody');
+            if (!tableBody) return;
+            
+            // Clear existing rows
+            tableBody.innerHTML = '';
+            
+            if (summaryTable && summaryTable.length > 0) {
+                summaryTable.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.metric}</td>
+                        <td>${row.control_value}</td>
+                        <td>${row.variant_value}</td>
+                        <td>${row.difference}</td>
+                        <td>${row.confidence}</td>
+                        <td class="${row.is_significant ? 'stat-significant' : 'stat-not-significant'}">${row.significance}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            } else {
+                // Add default rows if no data
+                const defaultRows = [
+                    {metric: 'Conversion Rate', control_value: 'N/A', variant_value: 'N/A', difference: 'N/A', confidence: 'N/A', significance: 'No', is_significant: false},
+                    {metric: 'Average Order Value', control_value: 'N/A', variant_value: 'N/A', difference: 'N/A', confidence: 'N/A', significance: 'No', is_significant: false},
+                    {metric: 'Bounce Rate', control_value: 'N/A', variant_value: 'N/A', difference: 'N/A', confidence: 'N/A', significance: 'No', is_significant: false},
+                    {metric: 'Pages per Session', control_value: 'N/A', variant_value: 'N/A', difference: 'N/A', confidence: 'N/A', significance: 'No', is_significant: false}
+                ];
+                
+                defaultRows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.metric}</td>
+                        <td>${row.control_value}</td>
+                        <td>${row.variant_value}</td>
+                        <td>${row.difference}</td>
+                        <td>${row.confidence}</td>
+                        <td class="${row.is_significant ? 'stat-significant' : 'stat-not-significant'}">${row.significance}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+        }
+        
+        // Function to update detailed analysis metrics
+        function updateDetailedAnalysis(data) {
+            // Update statistical summary table
+            updateSummaryTable(data.summary_table);
+            
+            // Update sample size calculation card (if data is available)
+            // Note: These would need to be included in the API response from your Flask app
+            const sampleSizeCard = document.querySelector('#detailed .card-body');
+            
+            // Update confidence interval information if statistical analysis is available
+            if (data.statistical_analysis) {
+                // This would update the confidence interval card data
+                // You might need to add these fields to your API response
+                console.log('Statistical analysis available for detailed view:', data.statistical_analysis);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize charts with server data
+            initializeCharts();
+            
+            // Setup form submission
+            setupFormSubmission();
+            
+            // Restore the active tab if one was stored
+            restoreActiveTab();
+        });
+        
+        // Function to setup form submission with loading state
+        function setupFormSubmission() {
+            const form = document.getElementById('filterForm');
+            const btn = document.getElementById('apply-filters-btn');
+            const btnText = btn.querySelector('.btn-text');
+            const spinner = btn.querySelector('.spinner-border');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault(); // Prevent default form submission
+                
+                // Store the current active tab before submitting
+                const activeTab = document.querySelector('.nav-pills .nav-link.active');
+                if (activeTab) {
+                    localStorage.setItem('activeTab', activeTab.getAttribute('href'));
+                }
+                
+                // Get form values
+                const testValue = document.getElementById('testSelect').value;
+                const dateRangeValue = document.getElementById('dateRange').value;
+                const metricValue = document.getElementById('metricSelect').value;
+                
+                // Show loading state
+                btn.disabled = true;
+                btnText.textContent = 'Loading...';
+                spinner.classList.remove('d-none');
+                
+                try {
+                    // Load data from API
+                    const data = await loadDataFromAPI(testValue, dateRangeValue, metricValue);
+                    
+                    if (data) {
+                        // Update dashboard with new data
+                        updateDashboard(data);
+                        
+                        // Update URL without page reload (optional)
+                        const newUrl = new URL(window.location);
+                        newUrl.searchParams.set('test', testValue);
+                        newUrl.searchParams.set('date_range', dateRangeValue);
+                        newUrl.searchParams.set('metric', metricValue);
+                        window.history.pushState({}, '', newUrl);
+                    } else {
+                        // Fallback to traditional form submission if API fails
+                        document.getElementById('hiddenTest').value = testValue;
+                        document.getElementById('hiddenDateRange').value = dateRangeValue;
+                        document.getElementById('hiddenMetric').value = metricValue;
+                        form.submit();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error updating dashboard:', error);
+                    // Fallback to traditional form submission
+                    document.getElementById('hiddenTest').value = testValue;
+                    document.getElementById('hiddenDateRange').value = dateRangeValue;
+                    document.getElementById('hiddenMetric').value = metricValue;
+                    form.submit();
+                    return;
+                }
+                
+                // Reset button state
+                btn.disabled = false;
+                btnText.textContent = 'Apply Filters';
+                spinner.classList.add('d-none');
+                
+                // Restore active tab
+                restoreActiveTab();
+            });
+        }
+        
+        // Function to restore the active tab after page load
+        function restoreActiveTab() {
+            const storedTab = localStorage.getItem('activeTab');
+            if (storedTab) {
+                // Find the tab link and tab pane
+                const tabLink = document.querySelector(`.nav-pills .nav-link[href="${storedTab}"]`);
+                const tabPane = document.querySelector(storedTab);
+                
+                if (tabLink && tabPane) {
+                    // Remove active class from all tabs and panes
+                    document.querySelectorAll('.nav-pills .nav-link').forEach(link => {
+                        link.classList.remove('active');
+                    });
+                    document.querySelectorAll('.tab-pane').forEach(pane => {
+                        pane.classList.remove('show', 'active');
+                    });
+                    
+                    // Activate the stored tab
+                    tabLink.classList.add('active');
+                    tabPane.classList.add('show', 'active');
+                }
+                
+                // Clear the stored tab
+                localStorage.removeItem('activeTab');
+            }
+        }
+        
+        // Function to initialize charts with server data
+        function initializeCharts() {
+            // Process time series data for conversion chart
+            const timeSeriesLabels = [...new Set(serverData.timeSeriesData.map(d => d.visit_date))].sort();
+            const controlTimeData = [];
+            const variantTimeData = [];
+            
+            timeSeriesLabels.forEach(date => {
+                const controlRecord = serverData.timeSeriesData.find(d => d.visit_date === date && d.test_group === 'Control');
+                const variantRecord = serverData.timeSeriesData.find(d => d.visit_date === date && d.test_group === 'Variant B');
+                
+                controlTimeData.push(controlRecord ? controlRecord.conversion_rate : 0);
+                variantTimeData.push(variantRecord ? variantRecord.conversion_rate : 0);
+            });
+
+            // Conversion Rate Over Time Chart
+            const conversionCtx = document.getElementById('conversionChart').getContext('2d');
+            conversionChart = new Chart(conversionCtx, {
+                type: 'line',
+                data: {
+                    labels: timeSeriesLabels,
+                    datasets: [{
+                        label: 'Control (A)',
+                        data: controlTimeData,
+                        borderColor: '#3366CC',
+                        backgroundColor: 'rgba(51, 102, 204, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }, {
+                        label: 'Variant (B)',
+                        data: variantTimeData,
+                        borderColor: '#FF0000',
+                        backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Conversion Rate (%)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Metric Comparison Chart (using actual data)
+            let metricLabels = ['Conversion Rate', 'Avg Order Value', 'Bounce Rate', 'Pages/Session'];
+            let controlMetricData = [0, 0, 0, 0];
+            let variantMetricData = [0, 0, 0, 0];
+            
+            if (serverData.conversionMetrics && serverData.conversionMetrics.length >= 2) {
+                const control = serverData.conversionMetrics.find(m => m.test_group === 'Control');
+                const variant = serverData.conversionMetrics.find(m => m.test_group === 'Variant B');
+                
+                if (control && variant) {
+                    controlMetricData = [
+                        control.conversion_rate,
+                        control.avg_order_value,
+                        control.bounce_rate,
+                        control.avg_pages_per_session
+                    ];
+                    variantMetricData = [
+                        variant.conversion_rate,
+                        variant.avg_order_value,
+                        variant.bounce_rate,
+                        variant.avg_pages_per_session
+                    ];
+                }
+            }
+
+            const metricCtx = document.getElementById('metricChart').getContext('2d');
+            metricChart = new Chart(metricCtx, {
+                type: 'bar',
+                data: {
+                    labels: metricLabels,
+                    datasets: [{
+                        label: 'Control (A)',
+                        data: controlMetricData,
+                        backgroundColor: '#3366CC'
+                    }, {
+                        label: 'Variant (B)',
+                        data: variantMetricData,
+                        backgroundColor: '#FF0000'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Device Type Chart
+            const deviceLabels = [...new Set(serverData.deviceData.map(d => d.segment))];
+            const controlDeviceData = [];
+            const variantDeviceData = [];
+            
+            deviceLabels.forEach(device => {
+                const control = serverData.deviceData.find(d => d.segment === device && d.test_group === 'Control');
+                const variant = serverData.deviceData.find(d => d.segment === device && d.test_group === 'Variant B');
+                
+                controlDeviceData.push(control ? control.conversion_rate : 0);
+                variantDeviceData.push(variant ? variant.conversion_rate : 0);
+            });
+
+            const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+            deviceChart = new Chart(deviceCtx, {
+                type: 'bar',
+                data: {
+                    labels: deviceLabels,
+                    datasets: [{
+                        label: 'Control (A)',
+                        data: controlDeviceData,
+                        backgroundColor: '#3366CC'
+                    }, {
+                        label: 'Variant (B)',
+                        data: variantDeviceData,
+                        backgroundColor: '#FF0000'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Conversion Rate (%)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Geographic Performance Chart (using location data if available)
+            const locationLabels = [...new Set(serverData.locationData.map(d => d.segment))];
+            const locationLiftData = [];
+            
+            locationLabels.forEach(location => {
+                const control = serverData.locationData.find(d => d.segment === location && d.test_group === 'Control');
+                const variant = serverData.locationData.find(d => d.segment === location && d.test_group === 'Variant B');
+                
+                if (control && variant && control.conversion_rate > 0) {
+                    const lift = ((variant.conversion_rate - control.conversion_rate) / control.conversion_rate * 100);
+                    locationLiftData.push(lift);
+                } else {
+                    locationLiftData.push(0);
+                }
+            });
+
+            const geoCtx = document.getElementById('geoChart').getContext('2d');
+            geoChart = new Chart(geoCtx, {
+                type: 'bar',
+                data: {
+                    labels: locationLabels.length > 0 ? locationLabels : ['USA', 'Canada', 'UK', 'Other'],
+                    datasets: [{
+                        label: 'Lift (%)',
+                        data: locationLiftData.length > 0 ? locationLiftData : [12.5, 15.2, 10.1, 8.7],
+                        backgroundColor: [
+                            '#FF0000', '#CC0000', '#FF3333', '#FF6666', '#FF9999'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Improvement (%)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Visitor Type Chart
+            const visitorLabels = [...new Set(serverData.visitorData.map(d => d.segment))];
+            const controlVisitorData = [];
+            const variantVisitorData = [];
+            
+            visitorLabels.forEach(type => {
+                const control = serverData.visitorData.find(d => d.segment === type && d.test_group === 'Control');
+                const variant = serverData.visitorData.find(d => d.segment === type && d.test_group === 'Variant B');
+                
+                controlVisitorData.push(control ? control.conversion_rate : 0);
+                variantVisitorData.push(variant ? variant.conversion_rate : 0);
+            });
+
+            const visitorCtx = document.getElementById('visitorChart').getContext('2d');
+            visitorChart = new Chart(visitorCtx, {
+                type: 'bar',
+                data: {
+                    labels: visitorLabels.length > 0 ? visitorLabels : ['New Visitors', 'Returning Visitors'],
+                    datasets: [{
+                        label: 'Control (A)',
+                        data: controlVisitorData.length > 0 ? controlVisitorData : [3.2, 5.8],
+                        backgroundColor: '#3366CC'
+                    }, {
+                        label: 'Variant (B)',
+                        data: variantVisitorData.length > 0 ? variantVisitorData : [4.1, 6.9],
+                        backgroundColor: '#FF0000'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Conversion Rate (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

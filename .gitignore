@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+.idea
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage and test output
+.coverage
+.coverage.*
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Local environment files
+.env
+.env.*
+
+# Flask instance folders and SQLite databases
+*.sqlite
+*.sqlite3
+
+cookies.txt
