@@ -1,5 +1,5 @@
 from datetime import timedelta
-from flask import Flask
+from flask import Flask, Response
 import os
 
 from .routes import main_url, index, dashboard, login, logout, make_session
@@ -15,6 +15,11 @@ app = Flask(
 )
 app.secret_key = os.getenv("APP_SECRET", "51HgZrX9Q2bYlX3sYvPqL9aTgZrX9Q2b")
 app.permanent_session_lifetime = timedelta(minutes=SESSION_TIME) 
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return Response(status=204)
 
 
 def create_app():
