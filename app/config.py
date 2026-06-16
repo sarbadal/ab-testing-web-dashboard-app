@@ -14,11 +14,15 @@ class URLConfig:
         
         # Simple URL prefix that applies to all endpoints
         self.url_prefix = os.getenv('URL_PREFIX', '').rstrip('/')
+        self.static_base_url_override = os.getenv('STATIC_BASE_URL', '').rstrip('/')
         
         # Build all URLs using the prefix
         self.api_base_url = f"{self.url_prefix}/api/data" if self.url_prefix else '/api/data'
         self.app_base_url = self.url_prefix
-        self.static_base_url = f"{self.url_prefix}/static" if self.url_prefix else '/static'
+        if self.static_base_url_override:
+            self.static_base_url = self.static_base_url_override
+        else:
+            self.static_base_url = f"{self.url_prefix}/static" if self.url_prefix else '/static'
         
         # External API (not affected by prefix)
         self.external_api_url = os.getenv('EXTERNAL_API_URL', '')

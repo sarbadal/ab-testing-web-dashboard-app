@@ -38,6 +38,40 @@ python main.py
 
 Default local URL: `http://localhost:5000` (or configured via environment variables).
 
+## Deploy To GCP Cloud Functions (With Static Bucket Upload)
+
+Use the Python deployment helper to:
+
+- upload `static/` assets (JS/CSS/images/fonts) to a GCS bucket
+- set production `STATIC_BASE_URL` for templates
+- deploy the function with production env vars
+
+Install dependencies first:
+
+```bash
+pip install -r requirements.txt
+```
+
+Example:
+
+```bash
+python deployment.py \
+	--project-id your-project-id \
+	--function-name ab-testing-dashboard \
+	--region us-central1 \
+	--bucket your-static-assets-bucket \
+	--allow-unauthenticated
+```
+
+What this command does:
+
+- creates the bucket if it does not exist
+- uploads static files to a versioned prefix (for cache-safe releases)
+- writes `.env.prod` with resolved production variables
+- runs `gcloud functions deploy ... --gen2 --set-env-vars ...`
+
+To preview without deploying, add `--dry-run`.
+
 ## Environment Variables
 
 Use `.env` for configuration. Common values:
