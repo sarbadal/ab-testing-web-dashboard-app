@@ -54,7 +54,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="h4 mb-0">Retail Company A/B Testing Dashboard</h1>
                 <div class="d-flex align-items-center">
-                    <span class="me-3">Annalect</span>
+                    <span class="me-3">{{ session.get('username', 'Guest') }}</span>
                     <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNiIgZmlsbD0iI0U4RThFOCIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTIiIHI9IjQiIGZpbGw9IiM2NjYiLz48cGF0aCBkPSJNMTYgMjBDMTIgMjAgOCAxOCA4IDE2VjE5QzggMjEuMiAxMS42IDI0IDE2IDI0QzIwLjQgMjQgMjQgMjEuMiAyNCAxOVYxNkMyNCAxOCAyMCAyMCAxNiAyMFoiIGZpbGw9IiM2NjYiLz48L3N2Zz4=" alt="User" width="32" height="32" class="rounded-circle me-3">
                     <a href="{{ url_for('main.logout.logout') }}" class="btn btn-outline-light btn-sm">Logout</a>
                 </div>
